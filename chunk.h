@@ -11,7 +11,15 @@ typedef enum{
     OP_RETURN,
 
     // OpCode constantIndex
-    OP_CONSTANT
+    OP_CONSTANT,
+
+    // OpCode
+    OP_NEGATE,
+
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
 
 }OpCode;
 

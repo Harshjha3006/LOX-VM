@@ -11,9 +11,12 @@ int main(int argc, char **argv){
     int index = addConstant(&chunk,1.2);
     writeChunk(&chunk,OP_CONSTANT,123);
     writeChunk(&chunk,index,123);
+    index = addConstant(&chunk,3.4);
+    writeChunk(&chunk,OP_CONSTANT,123);
+    writeChunk(&chunk,index,123);
+    writeChunk(&chunk,OP_ADD,123);
     writeChunk(&chunk,OP_RETURN,123);
     initVM();
-    disAssembleChunk(&chunk,"test chunk");
     interpret(&chunk);
     freeVM();
     freeChunk(&chunk);
