@@ -15,7 +15,6 @@ typedef enum{
 
     // OpCode
     OP_NEGATE,
-
     OP_ADD,
     OP_SUB,
     OP_MUL,
@@ -27,10 +26,15 @@ typedef enum{
 // struct for a dynamic array of bytecode
 typedef struct{
 
-    int capacity;
+    // total capacity of the dynamic array
+    int capacity; 
+    // current size of dynamic array
     int size;
+    // pointer to the bytecode sequence
     uint8_t*code;
+    // dynamic array contaning the constans of the program
     ValueArray constants;
+    // dynamic array containing the line numbers where a specific bytecode came from
     int *lines;
 
 }Chunk;

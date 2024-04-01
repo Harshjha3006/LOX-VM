@@ -1,12 +1,19 @@
 #ifndef scanner_h
 #define scanner_h
 
+
+// struct for the lexical scanner
 typedef struct{
+    // pointer to start of current token
     const char*start;
+    // pointer to current char where the scanner is at
     const char*current;
+    // current line number
     int line;
 }Scanner;
 
+
+// enum for various token types
 typedef enum{
   // Single-character tokens.
   TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,
@@ -30,14 +37,24 @@ typedef enum{
 
 }TokenType;
 
+
+// struct for a token
 typedef struct{
+    // type of a token
     TokenType type;
+    // pointer to start of its lexeme
     const char*start;
+    // length of the lexeme
     int length;
+    // its line number
     int line;
 }Token;
 
+
+// initialises the scanner
 void initScanner(const char*source);
+
+// scans one token and returns it
 Token scanToken();
 
 

@@ -12,10 +12,13 @@ void initScanner(const char*source){
     scanner.line = 1;
 }
 
+// checks if we are at end of source code
 bool isAtEnd(){
     return *scanner.current == '\0';
 }
 
+
+// return a Token for the given TokenType
 Token makeToken(TokenType type){
     Token token;
     token.type = type;
@@ -25,11 +28,13 @@ Token makeToken(TokenType type){
     return token;
 }
 
-char advance(){
+// returns the current char and increments the current pointer
+static char advance(){
     scanner.current++;
     return scanner.current[-1];
 }
 
+// returns a TOKEN_ERROR token for the given error message
 Token errorToken(const char*message){
     Token token;
     token.type = TOKEN_ERROR;
@@ -39,6 +44,7 @@ Token errorToken(const char*message){
     return token;
 }
 
+// consumes the current char if it is equal to the expected character
 bool match(char expected){
     if(isAtEnd())return false;
     if(*scanner.current == expected){
@@ -48,15 +54,18 @@ bool match(char expected){
     return false;
 }
 
+// returns the current character
 char peek(){
     return *scanner.current;
 }
 
+// returns the next character
 char peekNext(){
     if(isAtEnd())return '\0';
     return scanner.current[1];
 }
 
+// consumes whitespaces
 void skipWhiteSpace(){
    for(;;){
     char c = peek();
@@ -76,6 +85,7 @@ void skipWhiteSpace(){
    }
 }
 
+// handles strings enclosed within ""
 Token string(){
     while(peek() != '"' && !isAtEnd){
         if(peek() == '\n')scanner.line++;
@@ -87,21 +97,24 @@ Token string(){
     return makeToken(TOKEN_STRING);
 }
 
+// checks if the character is a digit
 bool isDigit(char c){
     return c <= '9' && c >= '0';
 }
 
+// checks if the character is an alphabet
 bool isAlpha(char c){
     if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')return true;
     return false;
 }
 
-
-Token number(){
+// handles integer and floating point numbers
+static Token number(){
     while(isDigit(peek())){
         advance();
     }
 
+    // handles case for floating point numbers
     if(peek() == '.' && isDigit(peekNext())){
         advance();
         while(isDigit(peek()))advance();
@@ -109,12 +122,15 @@ Token number(){
     return makeToken(TOKEN_NUMBER);
 }
 
+// checks if the "rest" string is present after the start index
 TokenType checkKeyword(int start,int length,const char*rest,TokenType type){
     if((scanner.current - scanner.start) == start + length && memcmp(scanner.start + start,rest,length) == 0){
         return type;
     }
     return TOKEN_IDENTIFIER;
 }
+
+// returns a keyword or a regular identifier
 
 TokenType identifierType(){
 
@@ -152,11 +168,13 @@ TokenType identifierType(){
     return TOKEN_IDENTIFIER; 
 }
 
+
 Token identifier(){
     while(isAlpha(peek()) || isDigit(peek()))advance();
     return makeToken(identifierType());
 }
 
+// scans one token and returns it
 Token scanToken(){
     skipWhiteSpace();
     scanner.start = scanner.current;

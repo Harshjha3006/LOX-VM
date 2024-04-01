@@ -11,11 +11,14 @@ void disAssembleChunk(Chunk *chunk,const char *name){
     }
 }
 
+
+// for OPCODE
 int simpleInstruction(const char *name,int offset){
     printf("%s\n",name);
     return offset + 1;
 }
 
+// for OPCODE INDEX
 int constantInstruction(const char *name,Chunk *chunk,int offset){
 
     int constant = chunk->code[offset + 1];

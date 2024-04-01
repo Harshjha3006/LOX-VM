@@ -5,6 +5,8 @@
 
 VM vm;
 
+
+// points the stack top pointer to the beginning of the stack array
 void initVM(){
     vm.stackTop = vm.stack;
 }
@@ -24,9 +26,13 @@ void freeVM(){
 
 }
 
+
 InterpretResult run(){
+    // returns the byte at instruction pointer and increments the ip 
     #define READ_BYTE() (*vm.ip++)
+    // returns the constant at the current index in the bytecode
     #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+    // defines binary operations which involves the top 2 values of the stack
     #define BINARY_OP(op)\
         do{\
             double b = pop();\
@@ -34,6 +40,7 @@ InterpretResult run(){
             push(a op b);\
         }while(false)
 
+    // printing the contents of the stack and the current bytecode
     for(;;){
         #ifdef DEBUG_TRACE_EXECUTION
             printf("              ");
@@ -61,6 +68,15 @@ InterpretResult run(){
             case OP_ADD:
                 BINARY_OP(+);
                 break;
+            case OP_SUB:
+                BINARY_OP(-);
+                break;
+            case OP_MUL:
+                BINARY_OP(*);
+                break;
+            case OP_DIV:
+                BINARY_OP(/);
+                break;
             default:
                 return INTERPRET_RUNTIME_ERROR;
         }
@@ -74,7 +90,24 @@ InterpretResult run(){
 
 
 InterpretResult interpret(const char*source){
-    compile(source);
 
-    return INTERPRET_OK;
+    // initialising chunk struct
+    Chunk chunk;
+    initChunk(&chunk);
+
+    // checking for compiler error 
+    if(!compile(source,&chunk)){
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    // initialising VM
+    initVM();
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+
+    // Running the VM
+    InterpretResult result = run();
+    freeChunk(&chunk);
+    return result;
 }
