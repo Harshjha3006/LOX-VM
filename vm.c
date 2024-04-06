@@ -3,9 +3,12 @@
 #include "compiler.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include "value.h"
+#include "object.h"
+
 
 VM vm;
-
 
 // points the stack top pointer to the beginning of the stack array
 void resetStack(){
@@ -14,6 +17,7 @@ void resetStack(){
 
 void initVM(){
     resetStack();
+    vm.objects = NULL;
 }
 
 void push(Value value){
@@ -30,9 +34,29 @@ static Value peek(int distance){
     return vm.stackTop[-1 - distance];
 }
 
+void freeObject(Obj*obj){
+    switch(obj->type){
+        case OBJ_STR:
+            ObjString*string = (ObjString*)obj;
+            FREE_ARRAY(char,string->chars,string->length + 1);
+            FREE(ObjString,string);
+            break;
+        default:
+            return;
+    }
+}
+
+void freeObjects(Obj*objects){
+    Obj*obj = objects;
+    while(obj != NULL){
+       Obj*next = obj->next;
+       freeObject(obj);
+       obj = next;
+    }
+}
 
 void freeVM(){
-
+    freeObjects(vm.objects);
 }
 
 void runtimeError(const char *format,...){
@@ -61,7 +85,29 @@ bool areEqual(Value a,Value b){
             return a.as.number == b.as.number;
         case VAL_NIL:
             return true;
+        case VAL_OBJ:
+            ObjString*aString = AS_STRING(a);
+            ObjString*bString = AS_STRING(b);
+            return aString->length == bString->length && memcmp(aString->chars,bString->chars,aString->length);
+        default:
+            return false;
     }
+}
+
+ObjString* takeString(char *chars,int length){
+    return allocateString(chars,length);
+}
+
+void concatenate(){
+    ObjString * b = AS_STRING(pop());
+    ObjString * a = AS_STRING(pop());
+    int length = a->length + b->length;
+    char*chars = ALLOCATE(char,length + 1);
+    memcpy(chars,a->chars,a->length);
+    memcpy(chars + a->length,b->chars,b->length);
+    chars[length] = '\0';
+    ObjString*result = takeString(chars,length);
+    push(OBJ_VAL(result));
 }
 
 InterpretResult run(){
@@ -111,7 +157,14 @@ InterpretResult run(){
                 push(NUM_VAL(-AS_NUM(pop())));
                 break;
             case OP_ADD:
-                BINARY_OP(NUM_VAL,+);
+                if(IS_STRING(peek(0)) && IS_STRING(peek(1))){
+                    concatenate();
+                }else if(IS_NUM(peek(0)) && IS_NUM(peek(1))){
+                    BINARY_OP(NUM_VAL,+);
+                }
+                else{
+                    runtimeError("Operands should be either strings or numbers");
+                }
                 break;
             case OP_SUB:
                 BINARY_OP(NUM_VAL,-);

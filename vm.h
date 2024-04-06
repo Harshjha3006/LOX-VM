@@ -15,7 +15,11 @@ typedef struct {
     Value stack[STACK_SIZE];
     // pointer to top of the stack
     Value *stackTop;
+    // pointer to linked list of dynamically allocated objects
+    Obj*objects;
 }VM;
+
+extern VM vm;
 
 // initialising the stack
 void initVM();

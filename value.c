@@ -1,6 +1,7 @@
 #include "value.h"
 #include "common.h"
 #include "memory.h"
+#include "object.h"
 #include <stdio.h>
 
 
@@ -35,6 +36,9 @@ void printValue(Value value){
             break;
         case VAL_NIL:
             printf("nil");
+            break;
+        case VAL_OBJ:
+            printObject(value);
             break;
         default:
             return;

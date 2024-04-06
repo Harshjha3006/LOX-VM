@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "value.h"
+#include "object.h"
 #ifdef DEBUG_PRINT_EXECUTION
 #include "debug.h"
 #endif
@@ -12,8 +13,9 @@ Chunk *compilingChunk;
 void error(Token *token,const char*message){
     if(parser.panicMode == true)return;
     parser.panicMode = true;
-    fprintf(stderr,"line [%d]: ",token->line);
-    fprintf(stderr,"%.*s",token->length,message);
+    fprintf(stderr,"Compiler Error : line [%d]: ",token->line);
+    fprintf(stderr,"at '%.*s'",token->length,token->start);
+    fprintf(stderr,": %s\n",message);
     parser.hadError = true;
 }
 
@@ -116,6 +118,10 @@ void literal(){
     }
 }
 
+static void string(){
+    emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,parser.previous.length - 2)));
+}
+
 void grouping(){
     expression();
     consume(TOKEN_RIGHT_PAREN,"Expect ) at the end of expression");
@@ -212,7 +218,7 @@ ParseRule rules[] = {
   [TOKEN_LESS]          = {NULL,     binary,   PREC_COMPARISION},
   [TOKEN_LESS_EQUAL]    = {NULL,     binary,   PREC_COMPARISION},
   [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_STRING]        = {string,     NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},

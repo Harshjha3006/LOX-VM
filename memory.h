@@ -15,7 +15,11 @@
 // frees the array
 #define FREE_ARRAY(type,pointer,capacity) reallocate(pointer,sizeof(type) * capacity,0)
 
+#define FREE(type,pointer) reallocate(pointer,sizeof(type),0)
+
 // resizes pointed memory block from oldSize to newSize
 void* reallocate(void *pointer,size_t oldSize,size_t newSize);
+
+#define ALLOCATE(type,size) (type*)reallocate(NULL,0,sizeof(type) * size)
 
 #endif
