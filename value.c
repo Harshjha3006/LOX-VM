@@ -26,5 +26,17 @@ void freeValueArray(ValueArray *array){
 }
 
 void printValue(Value value){
-    printf("%g",value);
+    switch(value.type){
+        case VAL_NUM:
+            printf("%g",value.as.number);
+            break;
+        case VAL_BOOL:
+            printf(value.as.boolean?"true":"false");
+            break;
+        case VAL_NIL:
+            printf("nil");
+            break;
+        default:
+            return;
+    }
 }

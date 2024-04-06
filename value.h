@@ -1,8 +1,32 @@
 #ifndef value_h
 #define value_h
+#include "common.h"
 
 
-typedef double Value;
+typedef enum{
+    VAL_NUM,
+    VAL_BOOL,
+    VAL_NIL
+}ValueType;
+
+typedef struct {
+    ValueType type;
+    union {
+        double number;
+        bool boolean;
+    }as;
+}Value;
+
+#define NUM_VAL(val) ((Value){VAL_NUM,{.number = val}})
+#define BOOL_VAL(val) ((Value){VAL_BOOL,{.boolean = val}})
+#define NIL_VAL  ((Value){.type = VAL_NIL,{.number = 0}})
+
+#define AS_NUM(val) ((val).as.number)
+#define AS_BOOL(val) ((val).as.boolean)
+
+#define IS_BOOL(val) ((val).type == VAL_BOOL)
+#define IS_NUM(val) ((val).type == VAL_NUM)
+#define IS_NIL(val) ((val).type == VAL_NIL)
 
 // struct for dynamic array of constants in the program
 typedef struct{
