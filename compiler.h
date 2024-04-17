@@ -25,6 +25,17 @@ typedef enum {
     PREC_PRIMARY
 }Precedence;
 
+typedef struct{
+    Token name;
+    int depth;
+}Local;
+
+typedef struct{
+    Local locals[UINT8_MAX + 1];
+    int localCount;
+    int scopeDepth;
+}Compiler;
+
 typedef void(*ParseFn)(bool canAssign);
 
 typedef struct{

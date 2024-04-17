@@ -242,6 +242,22 @@ InterpretResult run(){
                 }
                 break;
             }
+            case OP_GET_LOCAL:{
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL:{
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_POPN:
+                uint8_t arg = READ_BYTE();
+                while(arg--){
+                    pop();
+                }
+                break;
             default:
                 return INTERPRET_RUNTIME_ERROR;
         }

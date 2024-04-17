@@ -29,6 +29,12 @@ int constantInstruction(const char *name,Chunk *chunk,int offset){
     return offset + 2;
 }
 
+int byteInstruction(const char *name,Chunk *chunk,int offset){
+    int slot = chunk->code[offset + 1];
+    printf("%s %d\n",name,slot);
+    return offset + 2;
+}
+
 int disAssembleInstruction(Chunk * chunk,int offset){
     printf("%04d ",offset);
 
@@ -79,6 +85,12 @@ int disAssembleInstruction(Chunk * chunk,int offset){
             return constantInstruction("OP_GET_GLOBAL",chunk,offset);
         case OP_SET_GLOBAL:
             return constantInstruction("OP_SET_GLOBAL",chunk,offset);
+        case OP_SET_LOCAL:
+            return byteInstruction("OP_SET_LOCAL",chunk,offset);
+        case OP_GET_LOCAL:
+            return byteInstruction("OP_GET_LOCAL",chunk,offset);
+        case OP_POPN:
+            return byteInstruction("OP_POPN",chunk,offset);
         default:
             printf("Unknown opcode %d\n",instruction);
             return offset + 1;
