@@ -18,6 +18,8 @@ void resetStack(){
 void initVM(){
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.strings);
+    initTable(&vm.globals);
 }
 
 void push(Value value){
@@ -57,6 +59,8 @@ void freeObjects(Obj*objects){
 
 void freeVM(){
     freeObjects(vm.objects);
+    freeTable(&vm.strings);
+    freeTable(&vm.globals);
 }
 
 void runtimeError(const char *format,...){
@@ -86,16 +90,20 @@ bool areEqual(Value a,Value b){
         case VAL_NIL:
             return true;
         case VAL_OBJ:
-            ObjString*aString = AS_STRING(a);
-            ObjString*bString = AS_STRING(b);
-            return aString->length == bString->length && memcmp(aString->chars,bString->chars,aString->length);
+             return AS_OBJ(a) == AS_OBJ(b);
         default:
             return false;
     }
 }
 
 ObjString* takeString(char *chars,int length){
-    return allocateString(chars,length);
+    uint32_t hash = hashString(chars,length);
+    ObjString *interned = tableFindString(&vm.strings,chars,length,hash);
+    if(interned != NULL){
+        FREE_ARRAY(char,chars,length + 1);
+        return interned;
+    }
+    return allocateString(chars,length,hash);
 }
 
 void concatenate(){
@@ -115,6 +123,8 @@ InterpretResult run(){
     #define READ_BYTE() (*vm.ip++)
     // returns the constant at the current index in the bytecode
     #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+    // returns the string at the current index in the bytecode
+    #define READ_STRING() AS_STRING(READ_CONSTANT())
     // defines binary operations which involves the top 2 values of the stack
     #define BINARY_OP(valueType,op)\
         do{\
@@ -141,9 +151,12 @@ InterpretResult run(){
         #endif
         uint8_t code = READ_BYTE();
         switch(code){
+            case OP_POP:
+                pop();
+                break;
             case OP_RETURN:
-                printValue(pop());
-                printf("\n");
+                // printValue(pop());
+                // printf("\n");
                 return INTERPRET_OK;
             case OP_CONSTANT:
                 Value constant = READ_CONSTANT();
@@ -159,11 +172,13 @@ InterpretResult run(){
             case OP_ADD:
                 if(IS_STRING(peek(0)) && IS_STRING(peek(1))){
                     concatenate();
-                }else if(IS_NUM(peek(0)) && IS_NUM(peek(1))){
+                }
+                else if(IS_NUM(peek(0)) && IS_NUM(peek(1))){
                     BINARY_OP(NUM_VAL,+);
                 }
                 else{
                     runtimeError("Operands should be either strings or numbers");
+                    return INTERPRET_RUNTIME_ERROR;
                 }
                 break;
             case OP_SUB:
@@ -198,6 +213,35 @@ InterpretResult run(){
             case OP_LESSER:
                 BINARY_OP(NUM_VAL,<);
                 break;
+            case OP_PRINT:
+                printValue(pop());
+                printf("\n");
+                break;
+            case OP_DEFINE_GLOBAL:{
+                ObjString*key = READ_STRING();
+                tableSet(&vm.globals,key,peek(0));
+                pop();
+                break;
+            }
+            case OP_GET_GLOBAL:{
+                ObjString*key = READ_STRING();
+                Value value;
+                if(!tableGet(&vm.globals,key,&value)){
+                    runtimeError("Undefined Variable : %.*s",key->length,key->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_SET_GLOBAL:{
+                ObjString *key = READ_STRING();
+                if(tableSet(&vm.globals,key,peek(0))){
+                    tableDelete(&vm.globals,key);
+                    runtimeError("Undefined Variable : %.*s",key->length,key->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             default:
                 return INTERPRET_RUNTIME_ERROR;
         }
@@ -223,10 +267,8 @@ InterpretResult interpret(const char*source){
     }
 
     // initialising VM
-    initVM();
     vm.chunk = &chunk;
     vm.ip = vm.chunk->code;
-
     // Running the VM
     InterpretResult result = run();
     freeChunk(&chunk);

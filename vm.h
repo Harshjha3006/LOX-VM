@@ -3,6 +3,7 @@
 // #define DEBUG_TRACE_EXECUTION
 #include "chunk.h"
 #include "value.h"
+#include "table.h"
 #define STACK_SIZE 256
 
 // struct for the virtual machine 
@@ -17,6 +18,10 @@ typedef struct {
     Value *stackTop;
     // pointer to linked list of dynamically allocated objects
     Obj*objects;
+    // Hashset of interned strings
+    Table strings;
+    // Hashmap of global variables
+    Table globals;
 }VM;
 
 extern VM vm;

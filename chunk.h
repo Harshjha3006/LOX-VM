@@ -12,9 +12,9 @@ typedef enum{
 
     // OpCode constantIndex
     OP_CONSTANT,
-    OP_TRUE,
-    OP_FALSE,
-    OP_NIL,
+    OP_DEFINE_GLOBAL,
+    OP_GET_GLOBAL,
+    OP_SET_GLOBAL,
 
     // OpCode
     OP_NEGATE,
@@ -26,6 +26,11 @@ typedef enum{
     OP_EQUAL,
     OP_GREATER,
     OP_LESSER,
+    OP_PRINT,
+    OP_POP,
+    OP_TRUE,
+    OP_FALSE,
+    OP_NIL,
 
 }OpCode;
 

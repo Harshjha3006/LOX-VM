@@ -84,5 +84,7 @@ int main(int argc, char **argv){
         fprintf(stdin,"Usage : clox [path]");
     }
 
+    freeVM();
+
     return 0;
 }
