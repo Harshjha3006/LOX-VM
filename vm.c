@@ -6,7 +6,7 @@
 #include <string.h>
 #include "value.h"
 #include "object.h"
-
+#include <inttypes.h>
 
 VM vm;
 
@@ -125,6 +125,9 @@ InterpretResult run(){
     #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
     // returns the string at the current index in the bytecode
     #define READ_STRING() AS_STRING(READ_CONSTANT())
+    // combines two 8 bit operands as a single 16 bit number
+    #define READ_SHORT() (vm.ip += 2,(uint16_t)(vm.ip[-2] << 8 | vm.ip[-1]))
+
     // defines binary operations which involves the top 2 values of the stack
     #define BINARY_OP(valueType,op)\
         do{\
@@ -208,10 +211,10 @@ InterpretResult run(){
                 push(BOOL_VAL(areEqual(a,b)));
                 break;
             case OP_GREATER:
-                BINARY_OP(NUM_VAL,>);
+                BINARY_OP(BOOL_VAL,>);
                 break;
             case OP_LESSER:
-                BINARY_OP(NUM_VAL,<);
+                BINARY_OP(BOOL_VAL,<);
                 break;
             case OP_PRINT:
                 printValue(pop());
@@ -258,6 +261,19 @@ InterpretResult run(){
                     pop();
                 }
                 break;
+            case OP_JUMP_IF_FALSE:{
+                uint16_t offset = READ_SHORT();
+                if(isFalsey(peek(0))){
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP:{
+                uint16_t offset = READ_SHORT();
+                printf("jump : %" PRIu16 "\n",offset);
+                vm.ip += offset;
+                break;
+            }
             default:
                 return INTERPRET_RUNTIME_ERROR;
         }
@@ -267,6 +283,8 @@ InterpretResult run(){
     #undef READ_BYTE
     #undef READ_CONSTANT
     #undef BINARY_OP
+    #undef READ_STRING
+    #undef READ_SHORT
 }
 
 

@@ -61,6 +61,23 @@ void emitConstant(Value value){
     emitBytes(OP_CONSTANT,makeConstant(value));
 }
 
+int emitJump(uint8_t instruction){
+    emitByte(instruction);
+    emitByte(0xff);
+    emitByte(0xff);
+    return currentChunk()->size - 2;
+}
+
+void patchJump(int offset){
+    int jump = currentChunk()->size - offset - 2;
+
+    if(jump > UINT16_MAX){
+        errorAtPrevious("Too Much large jump");
+    }
+    currentChunk()->code[offset] = (uint8_t)(jump >> 8); // MSB 
+    currentChunk()->code[offset + 1] = (uint8_t)(jump); // LSB
+}
+
 void endCompiler(){
     emitReturn();
     #ifdef DEBUG_PRINT_EXECUTION
@@ -305,6 +322,30 @@ void endScope(){
     emitBytes(OP_POPN,delCount);
 }
 
+
+void ifStatement(){
+    consume(TOKEN_LEFT_PAREN,"Expected ( after if");
+    expression();
+    consume(TOKEN_RIGHT_PAREN,"Expected ) after condition");
+
+    int thenOffset = emitJump(OP_JUMP_IF_FALSE);
+    
+    emitByte(OP_POP);
+
+    statement();
+
+    int elseOffset = emitJump(OP_JUMP);
+
+    emitByte(OP_POP);
+
+    patchJump(thenOffset);
+
+    if(match(TOKEN_ELSE))statement();
+
+    patchJump(elseOffset);
+
+}
+
 void statement(){
     if(match(TOKEN_PRINT)){
         printStatement();
@@ -313,6 +354,9 @@ void statement(){
         beginScope();
         block();
         endScope();
+    }
+    else if(match(TOKEN_IF)){
+        ifStatement();
     }
     else{
         expressionStatement();

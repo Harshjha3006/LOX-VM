@@ -10,6 +10,10 @@ typedef enum{
     // OpCode 
     OP_RETURN,
 
+    // OpCode operand1 operand2
+    OP_JUMP_IF_FALSE,
+    OP_JUMP,
+
     // OpCode constantIndex
     OP_CONSTANT,
     OP_DEFINE_GLOBAL,
