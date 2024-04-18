@@ -270,8 +270,12 @@ InterpretResult run(){
             }
             case OP_JUMP:{
                 uint16_t offset = READ_SHORT();
-                printf("jump : %" PRIu16 "\n",offset);
                 vm.ip += offset;
+                break;
+            }
+            case OP_LOOP:{
+                uint16_t offset = READ_SHORT();
+                vm.ip -= offset;
                 break;
             }
             default:

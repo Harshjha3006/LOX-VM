@@ -13,6 +13,7 @@ typedef enum{
     // OpCode operand1 operand2
     OP_JUMP_IF_FALSE,
     OP_JUMP,
+    OP_LOOP,
 
     // OpCode constantIndex
     OP_CONSTANT,

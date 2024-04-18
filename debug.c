@@ -102,6 +102,8 @@ int disAssembleInstruction(Chunk * chunk,int offset){
             return jumpInstruction("OP_JUMP_IF_FALSE",chunk,offset);
         case OP_JUMP:
             return jumpInstruction("OP_JUMP",chunk,offset);
+        case OP_LOOP:
+            return jumpInstruction("OP_LOOP",chunk,offset);
         default:
             printf("Unknown opcode %d\n",instruction);
             return offset + 1;

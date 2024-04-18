@@ -68,6 +68,19 @@ int emitJump(uint8_t instruction){
     return currentChunk()->size - 2;
 }
 
+void emitLoop(int loopStart){
+    emitByte(OP_LOOP);
+
+    int jump = currentChunk()->size - loopStart + 2;
+    if(jump > UINT16_MAX){
+        errorAtPrevious("Loop body too large");
+    }
+    
+    emitByte((uint8_t)(jump << 8));
+    emitByte((uint8_t)(jump));
+
+}
+
 void patchJump(int offset){
     int jump = currentChunk()->size - offset - 2;
 
@@ -240,6 +253,23 @@ void binary(bool canAssign){
     }
 }
 
+void _and(bool canAssign){
+    int offset = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    parsePrecedence(PREC_AND);
+    patchJump(offset);
+}
+
+void _or(bool canAssign){
+    int offset = emitJump(OP_JUMP_IF_FALSE);
+    int endOffset = emitJump(OP_JUMP);
+    patchJump(offset);
+    emitByte(OP_POP);
+    parsePrecedence(PREC_OR);
+    patchJump(endOffset);
+
+}
+
 uint8_t identifierConstant(Token *name){
     return makeConstant(OBJ_VAL(copyString(name->start,name->length)));
 }
@@ -346,6 +376,21 @@ void ifStatement(){
 
 }
 
+void whileStatement(){
+    int loopStart = currentChunk()->size;
+    consume(TOKEN_LEFT_PAREN,"Expect ( after while");
+    expression();
+    consume(TOKEN_RIGHT_PAREN,"Expect ) after condition");
+
+    int offset = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    statement();
+    emitLoop(loopStart);
+    patchJump(offset);
+    emitByte(OP_POP);
+
+}
+
 void statement(){
     if(match(TOKEN_PRINT)){
         printStatement();
@@ -357,6 +402,9 @@ void statement(){
     }
     else if(match(TOKEN_IF)){
         ifStatement();
+    }
+    else if(match(TOKEN_WHILE)){
+        whileStatement();
     }
     else{
         expressionStatement();
@@ -488,7 +536,7 @@ ParseRule rules[] = {
   [TOKEN_IDENTIFIER]    = {variable,     NULL,   PREC_NONE},
   [TOKEN_STRING]        = {string,     NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
-  [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_AND]           = {NULL,     _and,   PREC_AND},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,     NULL,   PREC_NONE},
@@ -496,7 +544,7 @@ ParseRule rules[] = {
   [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
   [TOKEN_NIL]           = {literal,     NULL,   PREC_NONE},
-  [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_OR]            = {NULL,     _or,   PREC_OR},
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
