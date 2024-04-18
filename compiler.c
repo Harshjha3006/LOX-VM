@@ -321,6 +321,74 @@ void variable(bool canAssign){
     namedVariable(parser.previous,canAssign);
 }
 
+void addLocal(Token name){
+
+    if(current->localCount == UINT8_MAX ){
+        errorAtPrevious("Too Many local variables declared in a block");
+        return;
+    }
+
+    Local *local = &current->locals[current->localCount++];
+    local->name = name;
+    local->depth = -1;
+}
+
+
+
+void declareVariable(){
+    if(current->scopeDepth == 0)return;
+
+    Token*name = &parser.previous;
+
+    for(int i = current->localCount - 1;i >= 0;i--){
+        Local *local = &current->locals[i];
+        if(local->depth != -1 && local->depth < current->scopeDepth){
+            break;
+        }
+        if(identifiersEqual(&local->name,name)){
+            errorAtPrevious("Already a variable with this name in this scope");
+        }
+    }
+
+    addLocal(*name);
+}
+
+uint8_t parseVariableName(const char*message){
+    consume(TOKEN_IDENTIFIER,message);
+
+    declareVariable();
+    if(current->scopeDepth > 0){
+        return 0;
+    }
+    return identifierConstant(&parser.previous);
+}
+
+void markInitialised(){
+    current->locals[current->localCount - 1].depth = current->scopeDepth;
+}
+
+void defineVariable(uint8_t global){
+    if(current->scopeDepth > 0){
+        markInitialised();
+        return;
+    }
+    emitBytes(OP_DEFINE_GLOBAL,global);
+}
+
+void varDeclaration(){
+    uint8_t global = parseVariableName("Expected Variable Name");
+
+    if(match(TOKEN_EQUAL)){
+        expression();
+    }
+    else{
+        emitByte(OP_NIL);
+    }
+
+    consume(TOKEN_SEMICOLON,"Expected ; at the end");
+    defineVariable(global);
+}
+
 void printStatement(){
     expression();
     consume(TOKEN_SEMICOLON,"Expected ; at the end");
@@ -391,6 +459,54 @@ void whileStatement(){
 
 }
 
+void forStatement(){
+    beginScope();
+    consume(TOKEN_LEFT_PAREN,"Expected ( after for");
+
+    if(match(TOKEN_SEMICOLON)){
+        // no initialiser, do nothing
+    }
+    else if(match(TOKEN_VAR)){
+        varDeclaration();
+    }
+    else{
+        expressionStatement();
+    }
+
+    int exitJump = -1;
+    int loopStart = currentChunk()->size;
+    if(!match(TOKEN_SEMICOLON)){
+        // there is a condition
+        expression();
+        consume(TOKEN_SEMICOLON,"Expected ; after condition");
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+    }
+
+    if(!match(TOKEN_RIGHT_PAREN)){
+        // there is an increment clause
+        int incrementJump = emitJump(OP_JUMP);
+        int incrementStart = currentChunk()->size;
+
+        expression();
+        consume(TOKEN_RIGHT_PAREN,"Expected ) after increment clause");
+        emitByte(OP_POP);
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(incrementJump);
+    }
+    statement();
+    emitLoop(loopStart);
+    
+    if(exitJump != -1){
+        patchJump(exitJump);
+        emitByte(OP_POP);
+    }
+
+    endScope();
+}
+
 void statement(){
     if(match(TOKEN_PRINT)){
         printStatement();
@@ -406,78 +522,14 @@ void statement(){
     else if(match(TOKEN_WHILE)){
         whileStatement();
     }
+    else if(match(TOKEN_FOR)){
+        forStatement();
+    }
     else{
         expressionStatement();
     }
 }
 
-void addLocal(Token name){
-
-    if(current->localCount == UINT8_MAX ){
-        errorAtPrevious("Too Many local variables declared in a block");
-        return;
-    }
-
-    Local *local = &current->locals[current->localCount++];
-    local->name = name;
-    local->depth = -1;
-}
-
-
-
-void declareVariable(){
-    if(current->scopeDepth == 0)return;
-
-    Token*name = &parser.previous;
-
-    for(int i = current->localCount - 1;i >= 0;i--){
-        Local *local = &current->locals[i];
-        if(local->depth != -1 && local->depth < current->scopeDepth){
-            break;
-        }
-        if(identifiersEqual(&local->name,name)){
-            errorAtPrevious("Already a variable with this name in this scope");
-        }
-    }
-
-    addLocal(*name);
-}
-
-uint8_t parseVariableName(const char*message){
-    consume(TOKEN_IDENTIFIER,message);
-
-    declareVariable();
-    if(current->scopeDepth > 0){
-        return 0;
-    }
-    return identifierConstant(&parser.previous);
-}
-
-void markInitialised(){
-    current->locals[current->localCount - 1].depth = current->scopeDepth;
-}
-
-void defineVariable(uint8_t global){
-    if(current->scopeDepth > 0){
-        markInitialised();
-        return;
-    }
-    emitBytes(OP_DEFINE_GLOBAL,global);
-}
-
-void varDeclaration(){
-    uint8_t global = parseVariableName("Expected Variable Name");
-
-    if(match(TOKEN_EQUAL)){
-        expression();
-    }
-    else{
-        emitByte(OP_NIL);
-    }
-
-    consume(TOKEN_SEMICOLON,"Expected ; at the end");
-    defineVariable(global);
-}
 
 void declaration(){
     if(match(TOKEN_VAR)){
