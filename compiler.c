@@ -9,7 +9,6 @@
 #endif
 
 Parser parser;
-Chunk *compilingChunk;
 Compiler*current = NULL;
 void statement();
 void declaration();
@@ -33,7 +32,7 @@ void errorAtPrevious(const char*message){
 
 
 Chunk* currentChunk(){
-    return compilingChunk;
+    return &current->function->chunk;
 }
 
 uint8_t makeConstant(Value value){
@@ -54,6 +53,7 @@ void emitBytes(uint8_t byte1,uint8_t byte2){
 }
 
 void emitReturn(){
+    emitByte(OP_NIL);
     emitByte(OP_RETURN);
 }
 
@@ -91,11 +91,33 @@ void patchJump(int offset){
     currentChunk()->code[offset + 1] = (uint8_t)(jump); // LSB
 }
 
-void endCompiler(){
+void initCompiler(Compiler *compiler,FunctionType type){
+    compiler->enclosing = current;
+    compiler->function = NULL;
+    compiler->type = type;
+    compiler->function = newFunction();
+    compiler->localCount = 0;
+    compiler->scopeDepth = 0;
+    if(type != FUNC_MAIN){
+        compiler->function->name = copyString(parser.previous.start,parser.previous.length)->chars;
+    }
+
+    current = compiler;
+
+    Local*local = &current->locals[current->localCount++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
+}
+
+ObjFunction* endCompiler(){
     emitReturn();
+    ObjFunction*function = current->function;
     #ifdef DEBUG_PRINT_EXECUTION
-        disAssembleChunk(currentChunk(),"code");
+        disAssembleChunk(currentChunk(),function->name == NULL?"main":function->name);
     #endif
+    current = current->enclosing;
+    return function;
 }
 
 static bool check(TokenType type){
@@ -364,6 +386,7 @@ uint8_t parseVariableName(const char*message){
 }
 
 void markInitialised(){
+    if(current->scopeDepth == 0)return;
     current->locals[current->localCount - 1].depth = current->scopeDepth;
 }
 
@@ -373,6 +396,27 @@ void defineVariable(uint8_t global){
         return;
     }
     emitBytes(OP_DEFINE_GLOBAL,global);
+}
+
+uint8_t arguementList(){
+
+    uint8_t argCount = 0;
+    if(!check(TOKEN_RIGHT_PAREN)){
+        do{
+            expression();
+            if(argCount == 255){
+                errorAtPrevious("Too Many arguements");
+            }
+            argCount++;
+        }while(match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN,"Expected ) at end of arguements list");
+    return argCount;
+}
+
+void call(bool canAssign){
+    uint8_t argCount = arguementList();
+    emitBytes(OP_CALL,argCount);
 }
 
 void varDeclaration(){
@@ -507,6 +551,53 @@ void forStatement(){
     endScope();
 }
 
+void function(FunctionType type){
+    // a new compiler for new function 
+    Compiler compiler;
+    initCompiler(&compiler,type);
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN,"Expected ( after function name");
+    if(!check(TOKEN_RIGHT_PAREN)){
+        do{
+            current->function->arity++;
+            if(current->function->arity == 255){
+                errorAtCurrent("Too Many arguments");
+            }
+            uint8_t global = parseVariableName("Expected variable name");
+            defineVariable(global);
+
+        }while(match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN,"Expected ) after arguments list");
+    consume(TOKEN_LEFT_BRACE,"Expected { before beginning of body");
+    block();
+
+    ObjFunction*function = endCompiler();
+    emitConstant(OBJ_VAL(function));
+}
+
+void funcDeclaration(){
+    uint8_t global = parseVariableName("Expected a function name");
+    markInitialised();
+    function(FUNC_USER);
+    defineVariable(global);
+}
+
+void returnStatement(){
+    if(current->type == FUNC_MAIN){
+        errorAtPrevious("Can't return from main");
+    }
+    if(!check(TOKEN_SEMICOLON)){
+        expression();
+        emitByte(OP_RETURN);
+    }
+    else{
+        emitReturn();
+    }
+    consume(TOKEN_SEMICOLON,"Expected ; at the end of return Statement");
+}
+
 void statement(){
     if(match(TOKEN_PRINT)){
         printStatement();
@@ -525,6 +616,12 @@ void statement(){
     else if(match(TOKEN_FOR)){
         forStatement();
     }
+    else if(match(TOKEN_FUN)){
+        funcDeclaration();
+    }
+    else if(match(TOKEN_RETURN)){
+        returnStatement();
+    }
     else{
         expressionStatement();
     }
@@ -541,32 +638,26 @@ void declaration(){
     if(parser.panicMode == true)synchronise();
 }
 
-void initCompiler(Compiler *compiler){
-    compiler->localCount = 0;
-    compiler->scopeDepth = 0;
-    current = compiler;
-}
 
-bool compile(const char*source,Chunk *chunk){
+
+ObjFunction* compile(const char*source){
     initScanner(source);
     parser.hadError = false;
     parser.panicMode = false;
-    compilingChunk = chunk;
     Compiler compiler;
-    initCompiler(&compiler);
+    initCompiler(&compiler,FUNC_MAIN);
     advance();
 
     while(!match(TOKEN_EOF)){
         declaration();
     }
-    // expression();
     consume(TOKEN_EOF,"Expect end of expression");
-    endCompiler();
-    return !parser.hadError;
+    ObjFunction * function = endCompiler();
+    return !parser.hadError?function:NULL;
 }
 
 ParseRule rules[] = {
-  [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
+  [TOKEN_LEFT_PAREN]    = {grouping, call,   PREC_CALL},
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},

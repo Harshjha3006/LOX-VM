@@ -13,6 +13,7 @@ VM vm;
 // points the stack top pointer to the beginning of the stack array
 void resetStack(){
     vm.stackTop = vm.stack;
+    vm.frameCount = 0;
 }
 
 void initVM(){
@@ -43,6 +44,11 @@ void freeObject(Obj*obj){
             FREE_ARRAY(char,string->chars,string->length + 1);
             FREE(ObjString,string);
             break;
+        case OBJ_FUNCTION:
+            ObjFunction*function = (ObjFunction*)obj;
+            freeChunk(&function->chunk);
+            FREE(ObjFunction,function);
+            break;
         default:
             return;
     }
@@ -68,11 +74,21 @@ void runtimeError(const char *format,...){
     va_start(args,format);
     vfprintf(stderr,format,args);
     va_end(args);
-
     fputs("\n",stderr);
-    size_t instruction = vm.ip - vm.chunk->code - 1;
-    int line = vm.chunk->lines[instruction];
-    fprintf(stderr,"[Line %d] error\n",line);
+
+    for(int i = vm.frameCount - 1;i >= 0;i--){
+        CallFrame *frame = &vm.frames[i];
+        size_t instruction = frame->ip - frame->function->chunk.code - 1;
+        int line = frame->function->chunk.lines[instruction];
+        fprintf(stderr,"[Line %d] in ",line);
+        if(frame->function->name == NULL){
+            fprintf(stderr,"main\n");
+        }
+        else{
+            fprintf(stderr,"%s()\n",frame->function->name);
+        }
+    }
+    
     resetStack();
 }
 
@@ -117,16 +133,50 @@ void concatenate(){
     ObjString*result = takeString(chars,length);
     push(OBJ_VAL(result));
 }
+static bool call(ObjFunction *function,uint8_t argCount){
+
+    if(argCount != function->arity){
+        runtimeError("Expected %d arguements but got %d arguements",function->arity,argCount);
+        return false;
+    }
+
+    if(vm.frameCount == FRAME_MAX){
+        runtimeError("stack overflow");
+        return false;
+    }
+
+    CallFrame*frame = &vm.frames[vm.frameCount++];
+    frame->function = function;
+    frame->ip = function->chunk.code;
+    frame->slots = vm.stackTop - argCount - 1;
+    return true;
+}
+
+bool callValue(Value callee ,uint8_t argCount){
+    if(IS_OBJ(callee)){
+        switch(OBJ_TYPE(callee)){
+            case OBJ_FUNCTION:
+                return call(AS_FUNCTION(callee),argCount);
+            default:
+                break;
+        }
+    }
+    runtimeError("Can only call functions and classes");
+    return false;
+}
 
 InterpretResult run(){
+
+    CallFrame *frame = &vm.frames[vm.frameCount - 1];
+
     // returns the byte at instruction pointer and increments the ip 
-    #define READ_BYTE() (*vm.ip++)
+    #define READ_BYTE() (*frame->ip++)
     // returns the constant at the current index in the bytecode
-    #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+    #define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])
     // returns the string at the current index in the bytecode
     #define READ_STRING() AS_STRING(READ_CONSTANT())
     // combines two 8 bit operands as a single 16 bit number
-    #define READ_SHORT() (vm.ip += 2,(uint16_t)(vm.ip[-2] << 8 | vm.ip[-1]))
+    #define READ_SHORT() (frame->ip += 2,(uint16_t)(frame->ip[-2] << 8 | frame->ip[-1]))
 
     // defines binary operations which involves the top 2 values of the stack
     #define BINARY_OP(valueType,op)\
@@ -150,7 +200,7 @@ InterpretResult run(){
                 printf("]");
             }
             printf("\n");
-            disAssembleInstruction(vm.chunk,(int)(vm.ip - vm.chunk->code));
+            disAssembleInstruction(&frame->function->chunk,(int)(frame->ip - frame->function->chunk.code));
         #endif
         uint8_t code = READ_BYTE();
         switch(code){
@@ -158,9 +208,16 @@ InterpretResult run(){
                 pop();
                 break;
             case OP_RETURN:
-                // printValue(pop());
-                // printf("\n");
-                return INTERPRET_OK;
+                Value result = pop();
+                vm.frameCount--;
+                if(vm.frameCount == 0){
+                    pop();
+                    return INTERPRET_OK;
+                }
+                vm.stackTop = frame->slots;
+                push(result);
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
             case OP_CONSTANT:
                 Value constant = READ_CONSTANT();
                 push(constant);
@@ -247,12 +304,12 @@ InterpretResult run(){
             }
             case OP_GET_LOCAL:{
                 uint8_t slot = READ_BYTE();
-                push(vm.stack[slot]);
+                push(frame->slots[slot]);
                 break;
             }
             case OP_SET_LOCAL:{
                 uint8_t slot = READ_BYTE();
-                vm.stack[slot] = peek(0);
+                frame->slots[slot] = peek(0);
                 break;
             }
             case OP_POPN:
@@ -264,18 +321,26 @@ InterpretResult run(){
             case OP_JUMP_IF_FALSE:{
                 uint16_t offset = READ_SHORT();
                 if(isFalsey(peek(0))){
-                    vm.ip += offset;
+                    frame->ip += offset;
                 }
                 break;
             }
             case OP_JUMP:{
                 uint16_t offset = READ_SHORT();
-                vm.ip += offset;
+                frame->ip += offset;
                 break;
             }
             case OP_LOOP:{
                 uint16_t offset = READ_SHORT();
-                vm.ip -= offset;
+                frame->ip -= offset;
+                break;
+            }
+            case OP_CALL:{
+                uint8_t argCount = READ_BYTE();
+                if(!callValue(peek(argCount),argCount)){
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = &vm.frames[vm.frameCount - 1];
                 break;
             }
             default:
@@ -294,21 +359,12 @@ InterpretResult run(){
 
 InterpretResult interpret(const char*source){
 
-    // initialising chunk struct
-    Chunk chunk;
-    initChunk(&chunk);
-
-    // checking for compiler error 
-    if(!compile(source,&chunk)){
-        freeChunk(&chunk);
+    ObjFunction *function = compile(source);
+    if(function == NULL){
         return INTERPRET_COMPILE_ERROR;
-    }
+    }    
+    push(OBJ_VAL(function));
+    call(function,0);
 
-    // initialising VM
-    vm.chunk = &chunk;
-    vm.ip = vm.chunk->code;
-    // Running the VM
-    InterpretResult result = run();
-    freeChunk(&chunk);
-    return result;
+    return run();
 }

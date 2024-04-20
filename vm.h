@@ -4,14 +4,21 @@
 #include "chunk.h"
 #include "value.h"
 #include "table.h"
-#define STACK_SIZE 256
+#define FRAME_MAX 64
+#define STACK_SIZE (FRAME_MAX * UINT8_MAX)
+
+
+typedef struct{
+    ObjFunction*function;
+    uint8_t*ip;
+    Value *slots;
+}CallFrame;
 
 // struct for the virtual machine 
 typedef struct {
-    // pointer to the bytecode chunk
-    Chunk*chunk;
-    // instruction pointer pointing to the next instruction to be executed
-    uint8_t* ip;
+    CallFrame frames[FRAME_MAX];
+
+    int frameCount;
     // stack
     Value stack[STACK_SIZE];
     // pointer to top of the stack

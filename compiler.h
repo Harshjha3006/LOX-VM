@@ -30,8 +30,16 @@ typedef struct{
     int depth;
 }Local;
 
-typedef struct{
-    Local locals[UINT8_MAX + 1];
+typedef enum{
+    FUNC_MAIN,
+    FUNC_USER
+}FunctionType;
+
+typedef struct Compiler{
+    struct Compiler *enclosing; // compiler which called this compiler
+    ObjFunction*function; // current function which it is compiling
+    FunctionType type; // type of function 
+    Local locals[UINT8_MAX + 1]; // array of local variables
     int localCount;
     int scopeDepth;
 }Compiler;
@@ -46,7 +54,7 @@ typedef struct{
 
 ParseRule* getRule(TokenType type);
 
-bool compile(const char*source,Chunk *chunk);
+ObjFunction* compile(const char*source);
 
 
 #endif
