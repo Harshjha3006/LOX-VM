@@ -316,8 +316,6 @@ int resolveLocal(Compiler*compiler,Token *name){
 }
 
 void namedVariable(Token name,bool canAssign){
-    uint8_t global = identifierConstant(&parser.previous);
-
     uint8_t getOp,setOp;
     int arg = resolveLocal(current,&name);
     if(arg != -1){
