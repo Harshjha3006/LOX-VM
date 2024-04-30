@@ -7,6 +7,7 @@
 #include "value.h"
 #include "object.h"
 #include <inttypes.h>
+#include <stdlib.h>
 #include <time.h>
 
 VM vm;
@@ -37,6 +38,11 @@ void initVM(){
     initTable(&vm.strings);
     initTable(&vm.globals);
     defineNative("clock",clockNative);
+    vm.grayStack = NULL;
+    vm.grayCount = 0;
+    vm.grayCapacity = 0;
+    vm.bytesAllocated = 0;
+    vm.nextGC = 1024 * 1024;
 }
 
 void push(Value value){
@@ -54,6 +60,9 @@ static Value peek(int distance){
 }
 
 void freeObject(Obj*obj){
+    #ifdef GC_LOG
+    printf("freed %p of type %d\n",obj,obj->type);
+    #endif
     switch(obj->type){
         case OBJ_STR:
             ObjString*string = (ObjString*)obj;
@@ -81,6 +90,8 @@ void freeObjects(Obj*objects){
        freeObject(obj);
        obj = next;
     }
+   if(vm.grayStack != NULL)free(vm.grayStack);
+
 }
 
 void freeVM(){
@@ -143,14 +154,16 @@ ObjString* takeString(char *chars,int length){
 }
 
 void concatenate(){
-    ObjString * b = AS_STRING(pop());
-    ObjString * a = AS_STRING(pop());
+    ObjString * b = AS_STRING(peek(0));
+    ObjString * a = AS_STRING(peek(1));
     int length = a->length + b->length;
     char*chars = ALLOCATE(char,length + 1);
     memcpy(chars,a->chars,a->length);
     memcpy(chars + a->length,b->chars,b->length);
     chars[length] = '\0';
     ObjString*result = takeString(chars,length);
+    pop();
+    pop();
     push(OBJ_VAL(result));
 }
 static bool call(ObjFunction *function,uint8_t argCount){

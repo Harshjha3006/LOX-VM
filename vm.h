@@ -1,6 +1,5 @@
 #ifndef vm_h
 #define vm_h
-// #define DEBUG_TRACE_EXECUTION
 #include "chunk.h"
 #include "value.h"
 #include "table.h"
@@ -29,6 +28,14 @@ typedef struct {
     Table strings;
     // Hashmap of global variables
     Table globals;
+    // array of gray objects for the garbage collector
+    Obj**grayStack; 
+    int grayCount;
+    int grayCapacity;
+
+    size_t bytesAllocated;
+    size_t nextGC;
+
 }VM;
 
 extern VM vm;
@@ -54,5 +61,7 @@ typedef enum{
 // interprets the given source code
 InterpretResult interpret(const char*source);
 
+
+void freeObject(Obj*obj);
 
 #endif

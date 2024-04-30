@@ -9,8 +9,12 @@
 static Obj* allocateObject(size_t size,ObjType type){
     Obj *obj = (Obj*)reallocate(NULL,0,size);
     obj->type = type;
+    obj->isMarked = false;
     obj->next = vm.objects;
     vm.objects = obj;
+    #ifdef GC_LOG
+    printf("%p allocated %zu bytes of type %d\n",(void*)obj,size,type);
+    #endif
     return obj;
 }
 
@@ -22,7 +26,9 @@ ObjString *allocateString(char *chars,int length,uint32_t hash){
     string->chars = chars;
     string->length = length;
     string->hash = hash;
+    push(OBJ_VAL(string));
     tableSet(&vm.strings,string,NIL_VAL);
+    pop();
     return string;
 }
 

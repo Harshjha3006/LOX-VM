@@ -120,6 +120,14 @@ ObjFunction* endCompiler(){
     return function;
 }
 
+void markCompilerRoots(){
+    Compiler*compiler = current;
+    while(compiler != NULL){
+        markObject((Obj*)compiler->function);
+        compiler = compiler->enclosing;
+    }
+}
+
 static bool check(TokenType type){
     return parser.current.type == type;
 }

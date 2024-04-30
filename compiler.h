@@ -2,7 +2,6 @@
 #define compiler_h
 #include "chunk.h"
 #include "scanner.h"
-#define DEBUG_PRINT_EXECUTION
 
 typedef struct{
     Token current;
@@ -56,5 +55,6 @@ ParseRule* getRule(TokenType type);
 
 ObjFunction* compile(const char*source);
 
+void markCompilerRoots();
 
 #endif

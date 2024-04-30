@@ -1,4 +1,5 @@
 #include "chunk.h"
+#include "vm.h"
 #include "memory.h"
 #include <stdlib.h>
 
@@ -40,6 +41,8 @@ void freeChunk(Chunk *chunk){
 
 // adding a constant to the values array and returning the index of added constant
 int addConstant(Chunk*chunk,Value value){
+    push(value);
     writeValueArray(&chunk->constants,value);
+    pop();
     return chunk->constants.size - 1;
 }
