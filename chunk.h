@@ -24,6 +24,9 @@ typedef enum{
     OP_GET_LOCAL,
     OP_POPN,
     OP_CALL,
+    OP_CLASS,
+    OP_SET_PROPERTY,
+    OP_GET_PROPERTY,
 
     // OpCode
     OP_NEGATE,

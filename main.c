@@ -5,11 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define REPL_LINE_SIZE 1024
 
 
 // starts a repl
 void repl(){
-    char line[1024]; // to store the single line input
+    char line[REPL_LINE_SIZE]; // to store the single line input
     for(;;){
         printf("> ");
         // scanning input
@@ -21,19 +22,21 @@ void repl(){
     }
 }
 
-// reads the source file
+// reads the source file into a buffer and returns the buffer
 char *readFile(const char*path){
-    // opens a file
+
+    /*
+        file is opened ,fileSize is calculated by moving the file pointer to the end of the file 
+        and then a sufficiently large buffer is allocated 
+    */
+
     FILE*file = fopen(path,"rb");
     if(file == NULL){
         fprintf(stderr,"Could not open file %s\n",path);
         exit(30);
     }
-    // moving file pointer to end of file
     fseek(file,0,SEEK_END);
-    // finding size of file
     size_t fileSize = ftell(file);
-    // moving the file pointer back at the start of file
     rewind(file);
 
     // buffer for storing file content
@@ -57,6 +60,7 @@ char *readFile(const char*path){
     return buffer;
 }
 
+// runs the source file specified by the path
 void runFile(const char *path){
     // reading the file
     char*source = readFile(path);
@@ -64,12 +68,19 @@ void runFile(const char *path){
     InterpretResult result = interpret(source);
     // freeing the pointer
     free(source);
+
+    // compiler error
     if(result == INTERPRET_COMPILE_ERROR)exit(72);
+    
+    // runtime error 
     if(result == INTERPRET_RUNTIME_ERROR)exit(73);
 }
 
+
 int main(int argc, char **argv){
 
+
+    // initialise the VM
     initVM();
 
     // repl if no arguement
@@ -80,10 +91,12 @@ int main(int argc, char **argv){
     else if(argc == 2){
         runFile(argv[1]);
     }
+    // otherwise error and prints usage
     else{
-        fprintf(stdin,"Usage : clox [path]");
+        fprintf(stderr,"Usage : clox [path]");
     }
 
+    // deallocates resources owned by the VM
     freeVM();
 
     return 0;

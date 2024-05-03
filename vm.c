@@ -78,6 +78,15 @@ void freeObject(Obj*obj){
             ObjNative*native = (ObjNative*)(obj);
             FREE(ObjNative,native);
             break;
+        case OBJ_CLASS:
+            ObjClass*klass = (ObjClass*)(obj);
+            FREE(ObjClass,klass);
+            break;
+        case OBJ_INSTANCE:
+            ObjInstance *instance = (ObjInstance*)(obj);
+            freeTable(&instance->fields);
+            FREE(ObjInstance,instance);
+            break;
         default:
             return;
     }
@@ -116,7 +125,7 @@ void runtimeError(const char *format,...){
             fprintf(stderr,"main\n");
         }
         else{
-            fprintf(stderr,"%s()\n",frame->function->name);
+            fprintf(stderr,"%s()\n",frame->function->name->chars);
         }
     }
     
@@ -196,6 +205,10 @@ bool callValue(Value callee ,uint8_t argCount){
                 Value result = native(argCount,vm.stackTop - argCount);
                 vm.stackTop -= argCount + 1;
                 push(result);
+                return true;
+            case OBJ_CLASS:
+                ObjInstance*instance = newInstance(AS_CLASS(callee));
+                vm.stackTop[-1 - argCount] = OBJ_VAL(instance);
                 return true;
             default:
                 break;
@@ -382,6 +395,38 @@ InterpretResult run(){
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
+            case OP_CLASS:{
+                push(OBJ_VAL(newClass(READ_STRING())));
+                break;
+            }
+            case OP_SET_PROPERTY : {
+                if(!IS_INSTANCE(peek(1))){
+                    runtimeError("Only Instances are allowed to have fields");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                ObjString*field = READ_STRING();
+                ObjInstance*instance = AS_INSTANCE(peek(1));
+                tableSet(&instance->fields,field,peek(0));
+                Value value = pop();
+                pop();
+                push(value);
+                break;
+            }
+            case OP_GET_PROPERTY : {
+                if(!IS_INSTANCE(peek(0))){
+                    runtimeError("Only Instances are allowed to have fields");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                ObjString*field = READ_STRING();
+                ObjInstance*instance = AS_INSTANCE(peek(0));
+                Value value;
+                if(!tableGet(&instance->fields,field,&value)){
+                    runtimeError("No such field for this class");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
                 break;
             }
             default:

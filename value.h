@@ -5,6 +5,8 @@
 typedef struct Obj Obj;
 typedef struct ObjString ObjString;
 typedef struct ObjFunction ObjFunction;
+typedef struct ObjClass ObjClass;
+typedef struct ObjInstance ObjInstance;
 
 typedef enum{
     VAL_NUM,

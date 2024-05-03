@@ -99,7 +99,7 @@ void initCompiler(Compiler *compiler,FunctionType type){
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
     if(type != FUNC_MAIN){
-        compiler->function->name = copyString(parser.previous.start,parser.previous.length)->chars;
+        compiler->function->name = copyString(parser.previous.start,parser.previous.length);
     }
 
     current = compiler;
@@ -114,7 +114,7 @@ ObjFunction* endCompiler(){
     emitReturn();
     ObjFunction*function = current->function;
     #ifdef DEBUG_PRINT_EXECUTION
-        disAssembleChunk(currentChunk(),function->name == NULL?"main":function->name);
+        disAssembleChunk(currentChunk(),function->name == NULL?"main":function->name->chars);
     #endif
     current = current->enclosing;
     return function;
@@ -300,6 +300,7 @@ void _or(bool canAssign){
 
 }
 
+
 uint8_t identifierConstant(Token *name){
     return makeConstant(OBJ_VAL(copyString(name->start,name->length)));
 }
@@ -342,6 +343,19 @@ void namedVariable(Token name,bool canAssign){
     }
     else{
         emitBytes(getOp,(uint8_t)arg);
+    }
+}
+
+void dot(bool canAssign){
+    consume(TOKEN_IDENTIFIER,"Expected field name");
+    uint8_t constantIdx = identifierConstant(&parser.previous);
+
+    if(canAssign && match(TOKEN_EQUAL)){
+        expression();
+        emitBytes(OP_SET_PROPERTY,constantIdx);
+    }
+    else{
+        emitBytes(OP_GET_PROPERTY,constantIdx);
     }
 }
 
@@ -604,6 +618,20 @@ void returnStatement(){
     consume(TOKEN_SEMICOLON,"Expected ; at the end of return Statement");
 }
 
+void classDeclaration(){
+    consume(TOKEN_IDENTIFIER,"Expected class name after class keyword");
+
+    uint8_t constantIdx = identifierConstant(&parser.previous);
+    declareVariable();
+
+    emitBytes(OP_CLASS,constantIdx);
+    defineVariable(constantIdx);
+
+    consume(TOKEN_LEFT_BRACE,"Expected { before body");
+    consume(TOKEN_RIGHT_BRACE,"Expected } at the end of body");
+    consume(TOKEN_SEMICOLON,"Expected ; at end of class declaration");
+}
+
 void statement(){
     if(match(TOKEN_PRINT)){
         printStatement();
@@ -627,6 +655,9 @@ void statement(){
     }
     else if(match(TOKEN_RETURN)){
         returnStatement();
+    }
+    else if(match(TOKEN_CLASS)){
+        classDeclaration();
     }
     else{
         expressionStatement();
@@ -668,7 +699,7 @@ ParseRule rules[] = {
   [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_DOT]           = {NULL,     dot,   PREC_CALL},
   [TOKEN_MINUS]         = {unary,    binary, PREC_TERM},
   [TOKEN_PLUS]          = {NULL,     binary, PREC_TERM},
   [TOKEN_SEMICOLON]     = {NULL,     NULL,   PREC_NONE},

@@ -10,12 +10,16 @@
 #define IS_STRING(value)  isObjType(value,OBJ_STR)
 #define IS_FUNCTION(value) isObjType(value,OBJ_FUNCTION)
 #define IS_NATIVE(value) isObjType(value,OBJ_NATIVE)
+#define IS_CLASS(value) isObjType(value,OBJ_CLASS)
+#define IS_INSTANCE(value) isObjType(value,OBJ_INSTANCE)
 
 
 typedef enum{
     OBJ_STR,
     OBJ_FUNCTION,
-    OBJ_NATIVE
+    OBJ_NATIVE,
+    OBJ_CLASS,
+    OBJ_INSTANCE
 }ObjType;
 
 struct Obj{
@@ -35,9 +39,20 @@ struct ObjString{
 // function object struct 
 struct ObjFunction{
     Obj obj; // for inheritance from object struct
-    const char*name; // name of functionn
+    ObjString*name; // name of functionn
     Chunk chunk; // function's chunk to which its bytecode will be emitted
     int arity; // no of arguements of the function
+};
+
+struct ObjClass{
+    Obj obj;
+    ObjString*name;
+};
+
+struct ObjInstance{
+    Obj Obj;
+    ObjClass*klass;
+    Table fields;
 };
 
 typedef Value (*NativeFn)(int argCount,Value*args);
@@ -51,6 +66,8 @@ typedef struct{
 #define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->chars)
 #define AS_FUNCTION(value) ((ObjFunction*)AS_OBJ(value))
 #define AS_NATIVE_FN(value) (((ObjNative*)AS_OBJ(value))->fn)
+#define AS_CLASS(value) ((ObjClass*)AS_OBJ(value))
+#define AS_INSTANCE(value) ((ObjInstance*)AS_OBJ(value))
 
 
 ObjString* copyString(const char*chars,int length);
@@ -59,6 +76,8 @@ uint32_t hashString(const char*key,int length);
 ObjString* tableFindString(Table*table,const char*chars,int length,uint32_t hash);
 ObjFunction* newFunction();
 ObjNative* newNative(NativeFn fn);
+ObjClass* newClass(ObjString*name);
+ObjInstance *newInstance(ObjClass*klass);
 
 static inline bool isObjType(Value value,ObjType type){
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

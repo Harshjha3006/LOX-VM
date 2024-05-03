@@ -98,6 +98,17 @@ void blackenObject(Obj*obj){
             markArray(&function->chunk.constants);
             break;
         }
+        case OBJ_CLASS :{
+            ObjClass*klass = (ObjClass*)obj;
+            markObject((Obj*)klass->name);
+            break;
+        }
+        case OBJ_INSTANCE :{
+            ObjInstance *instance = (ObjInstance*)obj;
+            markObject((Obj*)instance->klass);
+            markTable(&instance->fields);
+            break;
+        }
     }
     #ifdef GC_LOG
     printf("%p blacken ", (void*)obj);
