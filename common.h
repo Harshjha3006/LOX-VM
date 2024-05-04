@@ -5,6 +5,7 @@
 #define DEBUG_PRINT_EXECUTION
 // #define GC_STRESS
 // #define GC_LOG
+#define NAN_BOXING
 
 // including the common libraries
 

@@ -46,7 +46,7 @@ ObjString* tableFindString(Table*table,const char*chars,int length,uint32_t hash
 
     if(table->count == 0)return NULL;
     
-    uint32_t bucket = hash % table->capacity;
+    uint32_t bucket = hash & (table->capacity - 1);
     for(;;){
         Entry*entry = &table->entries[bucket];
         if(entry->key == NULL){
@@ -56,7 +56,7 @@ ObjString* tableFindString(Table*table,const char*chars,int length,uint32_t hash
         && (memcmp(entry->key->chars,chars,length)) == 0){
             return entry->key;
         }
-        bucket = (bucket + 1) % table->capacity;
+        bucket = (bucket + 1) & (table->capacity - 1);
     }
 }
 

@@ -145,6 +145,10 @@ bool isFalsey(Value value){
 }
 
 bool areEqual(Value a,Value b){
+
+    #ifdef NAN_BOXING
+    return a == b;    
+    #else
     if(a.type != b.type)return false;
     switch(a.type){
         case VAL_BOOL:
@@ -158,6 +162,8 @@ bool areEqual(Value a,Value b){
         default:
             return false;
     }
+
+    #endif
 }
 
 ObjString* takeString(char *chars,int length){

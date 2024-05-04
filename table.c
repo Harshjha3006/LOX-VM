@@ -16,7 +16,7 @@ void freeTable(Table *table){
 }
 
 Entry*findEntry(ObjString*key,int capacity,Entry*entries){
-    uint32_t bucket = key->hash % capacity;
+    uint32_t bucket = key->hash & (capacity - 1);
     Entry *tombstone = NULL;
     for(;;){
         Entry*entry = &entries[bucket];
@@ -31,7 +31,7 @@ Entry*findEntry(ObjString*key,int capacity,Entry*entries){
         else if(entry->key == key){
             return entry;
         }
-        bucket = (bucket + 1) % capacity;
+        bucket = (bucket + 1) & (capacity - 1);
     }
 }
 
