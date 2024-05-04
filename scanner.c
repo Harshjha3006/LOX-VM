@@ -79,6 +79,16 @@ void skipWhiteSpace(){
             scanner.line++;
             advance();
             break;
+        case '/':
+            if(peekNext() == '/'){
+                while(peek() != '\n' && !isAtEnd()){
+                    advance();
+                }
+            }
+            else{
+                return;
+            }
+            break;
         default:
             return;
     }
@@ -206,14 +216,7 @@ Token scanToken(){
         case '=':
             return makeToken(match('=')?TOKEN_EQUAL_EQUAL:TOKEN_EQUAL);
         case '/':
-            if(peekNext() == '/'){
-                while(peek() != '\n' && !isAtEnd()){
-                    advance();
-                }
-            }
-            else{
-                return makeToken(TOKEN_SLASH);
-            }
+            return makeToken(TOKEN_SLASH);
             break;
         case '"':return string();
     }

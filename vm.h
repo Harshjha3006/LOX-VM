@@ -48,6 +48,8 @@ typedef struct {
     size_t bytesAllocated;
     // memory threshold at which the garbage collector will run
     size_t nextGC;
+
+    ObjString*initString;
 }VM;
 
 // exporting the VM to other files

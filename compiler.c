@@ -10,6 +10,7 @@
 
 Parser parser;
 Compiler*current = NULL;
+ClassCompiler *currentClass = NULL;
 void statement();
 void declaration();
 
@@ -53,7 +54,12 @@ void emitBytes(uint8_t byte1,uint8_t byte2){
 }
 
 void emitReturn(){
-    emitByte(OP_NIL);
+    if(current->type == FUNC_INITIALIZER){
+        emitBytes(OP_GET_LOCAL,0);
+    }
+    else{
+        emitByte(OP_NIL);
+    }
     emitByte(OP_RETURN);
 }
 
@@ -106,8 +112,15 @@ void initCompiler(Compiler *compiler,FunctionType type){
 
     Local*local = &current->locals[current->localCount++];
     local->depth = 0;
-    local->name.start = "";
-    local->name.length = 0;
+
+    if(type == FUNC_USER || type == FUNC_MAIN){
+        local->name.start = "";
+        local->name.length = 0;
+    }
+    else if(type == FUNC_METHOD || type == FUNC_INITIALIZER){
+        local->name.start = "this";
+        local->name.length = 4;
+    }
 }
 
 ObjFunction* endCompiler(){
@@ -346,6 +359,22 @@ void namedVariable(Token name,bool canAssign){
     }
 }
 
+uint8_t arguementList(){
+
+    uint8_t argCount = 0;
+    if(!check(TOKEN_RIGHT_PAREN)){
+        do{
+            expression();
+            if(argCount == 255){
+                errorAtPrevious("Too Many arguements");
+            }
+            argCount++;
+        }while(match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN,"Expected ) at end of arguements list");
+    return argCount;
+}
+
 void dot(bool canAssign){
     consume(TOKEN_IDENTIFIER,"Expected field name");
     uint8_t constantIdx = identifierConstant(&parser.previous);
@@ -354,6 +383,11 @@ void dot(bool canAssign){
         expression();
         emitBytes(OP_SET_PROPERTY,constantIdx);
     }
+    else if(match(TOKEN_LEFT_PAREN)){
+        uint8_t argCount = arguementList();
+        emitBytes(OP_INVOKE,constantIdx);
+        emitByte(argCount);
+    }
     else{
         emitBytes(OP_GET_PROPERTY,constantIdx);
     }
@@ -361,6 +395,14 @@ void dot(bool canAssign){
 
 void variable(bool canAssign){
     namedVariable(parser.previous,canAssign);
+}
+
+void _this(bool canAssign){
+    if(current == NULL){
+        errorAtPrevious("Can't use 'this' outside a class");
+        return;
+    }
+    variable(false);
 }
 
 void addLocal(Token name){
@@ -418,21 +460,6 @@ void defineVariable(uint8_t global){
     emitBytes(OP_DEFINE_GLOBAL,global);
 }
 
-uint8_t arguementList(){
-
-    uint8_t argCount = 0;
-    if(!check(TOKEN_RIGHT_PAREN)){
-        do{
-            expression();
-            if(argCount == 255){
-                errorAtPrevious("Too Many arguements");
-            }
-            argCount++;
-        }while(match(TOKEN_COMMA));
-    }
-    consume(TOKEN_RIGHT_PAREN,"Expected ) at end of arguements list");
-    return argCount;
-}
 
 void call(bool canAssign){
     uint8_t argCount = arguementList();
@@ -609,6 +636,9 @@ void returnStatement(){
         errorAtPrevious("Can't return from main");
     }
     if(!check(TOKEN_SEMICOLON)){
+        if(current->type == FUNC_INITIALIZER){
+            errorAtPrevious("Can't return anything for init method of class");
+        }
         expression();
         emitByte(OP_RETURN);
     }
@@ -616,6 +646,17 @@ void returnStatement(){
         emitReturn();
     }
     consume(TOKEN_SEMICOLON,"Expected ; at the end of return Statement");
+}
+
+void method(){
+    consume(TOKEN_IDENTIFIER,"Expected method name");
+    uint8_t name = identifierConstant(&parser.previous);
+    FunctionType type = FUNC_METHOD;
+    if(parser.previous.length == 4 && memcmp(parser.previous.start,"init",4) == 0){
+        type = FUNC_INITIALIZER;
+    }
+    function(type);
+    emitBytes(OP_METHOD,name);
 }
 
 void classDeclaration(){
@@ -627,8 +668,21 @@ void classDeclaration(){
     emitBytes(OP_CLASS,constantIdx);
     defineVariable(constantIdx);
 
+    ClassCompiler classCompiler;
+    classCompiler.enclosing = currentClass;
+    currentClass = &classCompiler;
+
+    Token className = parser.previous;
+    namedVariable(className,false);
+
     consume(TOKEN_LEFT_BRACE,"Expected { before body");
-    consume(TOKEN_RIGHT_BRACE,"Expected } at the end of body");
+    while(!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)){
+        method();
+    }
+    consume(TOKEN_RIGHT_BRACE,"Expected } at end of body");
+    emitByte(OP_POP);
+
+    currentClass = currentClass->enclosing;
     consume(TOKEN_SEMICOLON,"Expected ; at end of class declaration");
 }
 
@@ -728,7 +782,7 @@ ParseRule rules[] = {
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_THIS]          = {_this,     NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,     NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},

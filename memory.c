@@ -101,12 +101,19 @@ void blackenObject(Obj*obj){
         case OBJ_CLASS :{
             ObjClass*klass = (ObjClass*)obj;
             markObject((Obj*)klass->name);
+            markTable(&klass->methods);
             break;
         }
         case OBJ_INSTANCE :{
             ObjInstance *instance = (ObjInstance*)obj;
             markObject((Obj*)instance->klass);
             markTable(&instance->fields);
+            break;
+        }
+        case OBJ_BOUND_METHOD : {
+            ObjBoundMethod* method = (ObjBoundMethod*)obj;
+            markObject((Obj*)method->method);
+            markValue(method->receiver);
             break;
         }
     }

@@ -31,7 +31,9 @@ typedef struct{
 
 typedef enum{
     FUNC_MAIN,
-    FUNC_USER
+    FUNC_USER,
+    FUNC_METHOD,
+    FUNC_INITIALIZER,
 }FunctionType;
 
 typedef struct Compiler{
@@ -42,6 +44,10 @@ typedef struct Compiler{
     int localCount;
     int scopeDepth;
 }Compiler;
+
+typedef struct ClassCompiler{
+    struct ClassCompiler* enclosing;
+}ClassCompiler;
 
 typedef void(*ParseFn)(bool canAssign);
 

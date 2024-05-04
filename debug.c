@@ -42,6 +42,15 @@ int jumpInstruction(const char*name,int sign,Chunk*chunk,int offset){
     return offset + 3;
 }
 
+int invokeInstruction(const char*name,Chunk *chunk,int offset){
+    uint8_t constant = chunk->code[offset + 1];
+    uint8_t argCount = chunk->code[offset + 2];
+    printf("%s (%d args) %d '", name, argCount, constant);
+    printValue(chunk->constants.values[constant]);
+    printf("'\n");
+    return offset + 3;
+}
+
 int disAssembleInstruction(Chunk * chunk,int offset){
     printf("%04d ",offset);
 
@@ -112,6 +121,10 @@ int disAssembleInstruction(Chunk * chunk,int offset){
             return constantInstruction("OP_SET_PROPERTY",chunk,offset);
         case OP_GET_PROPERTY:
             return constantInstruction("OP_GET_PROPERTY",chunk,offset);
+        case OP_METHOD:
+            return constantInstruction("OP_METHOD",chunk,offset);
+        case OP_INVOKE:
+            return invokeInstruction("OP_INVOKE", chunk, offset);
         default:
             printf("Unknown opcode %d\n",instruction);
             return offset + 1;

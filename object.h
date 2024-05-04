@@ -12,6 +12,7 @@
 #define IS_NATIVE(value) isObjType(value,OBJ_NATIVE)
 #define IS_CLASS(value) isObjType(value,OBJ_CLASS)
 #define IS_INSTANCE(value) isObjType(value,OBJ_INSTANCE)
+#define IS_BOUND_METHOD(value) isObjType(value,OBJ_BOUND_METHOD)
 
 
 typedef enum{
@@ -19,7 +20,8 @@ typedef enum{
     OBJ_FUNCTION,
     OBJ_NATIVE,
     OBJ_CLASS,
-    OBJ_INSTANCE
+    OBJ_INSTANCE,
+    OBJ_BOUND_METHOD,
 }ObjType;
 
 struct Obj{
@@ -47,12 +49,19 @@ struct ObjFunction{
 struct ObjClass{
     Obj obj;
     ObjString*name;
+    Table methods;
 };
 
 struct ObjInstance{
-    Obj Obj;
+    Obj obj;
     ObjClass*klass;
     Table fields;
+};
+
+struct ObjBoundMethod{
+    Obj obj;
+    ObjFunction*method;
+    Value receiver;
 };
 
 typedef Value (*NativeFn)(int argCount,Value*args);
@@ -68,6 +77,7 @@ typedef struct{
 #define AS_NATIVE_FN(value) (((ObjNative*)AS_OBJ(value))->fn)
 #define AS_CLASS(value) ((ObjClass*)AS_OBJ(value))
 #define AS_INSTANCE(value) ((ObjInstance*)AS_OBJ(value))
+#define AS_BOUND_METHOD(value) ((ObjBoundMethod*)AS_OBJ(value))
 
 
 ObjString* copyString(const char*chars,int length);
@@ -78,6 +88,7 @@ ObjFunction* newFunction();
 ObjNative* newNative(NativeFn fn);
 ObjClass* newClass(ObjString*name);
 ObjInstance *newInstance(ObjClass*klass);
+ObjBoundMethod* newBoundMethod(ObjFunction*fn,Value receiver);
 
 static inline bool isObjType(Value value,ObjType type){
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

@@ -7,6 +7,7 @@ typedef struct ObjString ObjString;
 typedef struct ObjFunction ObjFunction;
 typedef struct ObjClass ObjClass;
 typedef struct ObjInstance ObjInstance;
+typedef struct ObjBoundMethod ObjBoundMethod;
 
 typedef enum{
     VAL_NUM,
